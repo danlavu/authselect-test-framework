@@ -1,0 +1,5 @@
+jc
+pytest
+python-ldap
+pytest-mh >= 1.0.19
+sssd-test-framework
