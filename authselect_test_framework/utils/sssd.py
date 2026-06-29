@@ -14,7 +14,7 @@ from ..hosts.base import BaseDomainHost
 from ..hosts.client import ClientHost
 from ..hosts.ipa import IPAHost
 from ..misc import to_list
-from ..roles.generic import GenericServer
+from ..roles.generic import GenericProvider
 
 if TYPE_CHECKING:
     from pytest_mh.utils.fs import LinuxFileSystem
@@ -374,37 +374,37 @@ class SSSDUtils(MultihostUtility[MultihostHost]):
         self.host.conn.run(cmd)
         self.svc.reload_daemon()
 
-    def set_server(self, server: GenericServer) -> None:
+    def set_provider(self, provider: GenericProvider) -> None:
         """
         Set the correct 'ldap_server | ipa_server | ad_server' parameter and value for the role.
 
-        :param server: Generic server fixture object.
-        :type server: GenericServer
+        :param provider: Generic provider fixture object.
+        :type provider: GenericProvider
         """
-        if server.name == "ldap":
-            self.domain["ldap_uri"] = f"ldap://{server.server}"
-        elif server.name in ("ipa", "ad"):
-            self.domain[f"{server.name}_server"] = server.server
+        if provider.name == "ldap":
+            self.domain["ldap_uri"] = f"ldap://{provider.hostname}"
+        elif provider.name in ("ipa", "ad"):
+            self.domain[f"{provider.name}_server"] = provider.hostname
         else:
-            raise ValueError("Unexpected server role value")
+            raise ValueError("Unexpected provider role value")
 
-    def set_invalid_primary_server(self, server: GenericServer) -> None:
+    def set_invalid_primary_provider(self, provider: GenericProvider) -> None:
         """
         Sets an non working server  value for 'ldap_server | ipa_server | ad_server' parameter and
         a working server  value for 'ldap_backup_server | ipa_backup_server | ad_backup_server'
         for failover testing.
 
-        :param server: Generic server fixture object.
-        :type server: GenericServer
+        :param provider: Generic provider fixture object.
+        :type provider: GenericProvider
         """
-        if server.name == "ldap":
-            self.domain["ldap_uri"] = f"ldap://invalid.{server.domain}"
-            self.domain["ldap_backup_uri"] = f"ldap://{server.server}"
-        elif server.name in ("ipa", "ad"):
-            self.domain[f"{server.name}_server"] = f"invalid.{server.domain}"
-            self.domain[f"{server.name}_backup_server"] = server.server
+        if provider.name == "ldap":
+            self.domain["ldap_uri"] = f"ldap://invalid.{provider.domain}"
+            self.domain["ldap_backup_uri"] = f"ldap://{provider.hostname}"
+        elif provider.name in ("ipa", "ad"):
+            self.domain[f"{provider.name}_server"] = f"invalid.{provider.domain}"
+            self.domain[f"{provider.name}_backup_server"] = provider.hostname
         else:
-            raise ValueError("Unexpected server role value")
+            raise ValueError("Unexpected provider role value")
 
     def enable_responder(self, responder: str) -> None:
         """
@@ -425,9 +425,9 @@ class SSSDUtils(MultihostUtility[MultihostHost]):
 
         :param name: SSSD domain name.
         :type name: str
-        :param role: Server role object to use for import.
+        :param role: Provider role object to use for import.
         :type role: MultihostRole
-        :raises ValueError: If unsupported server role is given.
+        :raises ValueError: If unsupported provider role is given.
         """
         host = role.host
 
@@ -453,9 +453,9 @@ class SSSDUtils(MultihostUtility[MultihostHost]):
 
         :param name: Target SSSD domain name
         :type name: str
-        :param role: Server role object to use for import.
+        :param role: Provider role object to use for import.
         :type role: BaseRole
-        :raises ValueError: If unsupported server role is given.
+        :raises ValueError: If unsupported provider role is given.
         """
         if not isinstance(role.host, BaseDomainHost):
             raise ValueError(f"Host type {type(role.host)} can not be imported as domain")

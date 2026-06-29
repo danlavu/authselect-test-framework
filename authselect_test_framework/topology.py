@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from enum import unique
-from typing import final
+from typing import TYPE_CHECKING, final
 
 from pytest_mh import KnownTopologyBase, KnownTopologyGroupBase, Topology, TopologyDomain
 
 from .config import AuthselectTopologyMark
+
+if TYPE_CHECKING:
+    from pytest_mh import TopologyMark
 from .controllers import (
     LocalController,
     SSSDController,
@@ -17,7 +20,22 @@ from .controllers import (
 __all__ = [
     "Profile",
     "ProfileGroup",
+    "profile_from_topology_mark",
 ]
+
+
+def profile_from_topology_mark(mark: TopologyMark) -> Profile:
+    """
+    Resolve :class:`Profile` enum member from a topology mark.
+    """
+    if not isinstance(mark, AuthselectTopologyMark):
+        raise ValueError(f"Expected AuthselectTopologyMark, got {type(mark)}")
+
+    for item in Profile:
+        if mark is item.value:
+            return item
+
+    raise ValueError(f"Unknown topology mark: {mark.name}")
 
 
 @final

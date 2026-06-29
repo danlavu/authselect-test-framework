@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pytest_mh.conn import ProcessResult
 
+from ..config import AuthselectTopologyMark
 from ..hosts.client import ClientHost
-from ..topology import AuthselectTopologyMark
 from ..utils.gdm import GDM
 from ..utils.local_users import (
     LocalGroup,
@@ -23,13 +23,18 @@ from ..utils.sssd import SSSDUtils
 from ..utils.vfido import Vfido
 from ..utils.winbind import WinbindUtils
 from .base import BaseLinuxRole
+from .generic import (
+    GenericCertificateAuthority,
+    GenericPasswordPolicy,
+    GenericProvider,
+)
 
 __all__ = [
     "Client",
 ]
 
 
-class Client(BaseLinuxRole[ClientHost]):
+class Client(BaseLinuxRole[ClientHost], GenericProvider):
     """
     Authselect client role.
 
@@ -98,6 +103,45 @@ class Client(BaseLinuxRole[ClientHost]):
         """
         Managing local users and groups.
         """
+
+        self.domain: str = "local"
+        """Local provider domain name."""
+
+        self.realm: str = "LOCAL"
+        """Local provider Kerberos realm."""
+
+        self.name: str = "local"
+        """Provider role identifier (``local``)."""
+
+        self.hostname: str = self.host.hostname
+        """Provider hostname."""
+
+    @property
+    def naming_context(self) -> str:
+        """
+        Naming context (not available on the local provider).
+        """
+        raise NotImplementedError("Naming context is not available on the local provider")
+
+    @property
+    def password_policy(self) -> GenericPasswordPolicy:
+        """
+        Domain password policy management (not available on the local provider).
+        """
+        raise NotImplementedError("Password policy is not available on the local provider")
+
+    @property
+    def ca(self) -> GenericCertificateAuthority:
+        """
+        Certificate Authority management (not available on the local provider).
+        """
+        raise NotImplementedError("Certificate authority is not available on the local provider")
+
+    def fqn(self, name: str) -> str:
+        """
+        Return fully qualified name (local users are not domain-qualified).
+        """
+        return name
 
     def setup(self) -> None:
         """

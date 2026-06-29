@@ -395,7 +395,7 @@ class NetgroupEntry(object):
     You can use string or tuple to assert netgroups members. Optionally, you
     can omit the domain part in which case the domain is not checked at all.
     This is useful for topology parametrization due to differences in the IPA
-    IPA server role automatically adds the IPA domain and it can not be set manually.
+    IPA provider role automatically adds the IPA domain and it can not be set manually.
 
     .. code-block:: python
         :caption: Example usage

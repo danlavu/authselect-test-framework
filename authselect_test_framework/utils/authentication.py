@@ -11,9 +11,7 @@ from pytest_mh.conn import Connection, ProcessResult
 from pytest_mh.utils.fs import LinuxFileSystem
 
 from ..misc.errors import ExpectScriptError
-from ..misc.globals import (
-    test_venv_bin,
-)
+from ..misc.globals import test_venv_bin
 from .idp import IdpAuthenticationUtils
 
 __all__ = [
@@ -61,7 +59,7 @@ class AuthenticationUtils(MultihostUtility[MultihostHost]):
             @pytest.mark.topology(Profile.SSSD)
             @pytest.mark.topology(Profile.Winbind)
             @pytest.mark.parametrize('method', ['su', 'ssh'])
-            def test_example(client: Client, provider: GenericServer, method: str):
+            def test_example(client: Client, provider: GenericProvider, method: str):
                 ldap.user('tuser').add(password='Secret123')
 
                 client.sssd.start()
@@ -89,7 +87,7 @@ class AuthenticationUtils(MultihostUtility[MultihostHost]):
                 ldap.user('tuser').add(password='Secret123')
 
                 client.sssd.start()
-                assert client.auth.su.password('tuser', 'Secret123')
+                assert client.auth.su.password('tuser', password='Secret123')
         """
 
         self.sudo: SudoAuthenticationUtils = SudoAuthenticationUtils(host)
@@ -123,7 +121,7 @@ class AuthenticationUtils(MultihostUtility[MultihostHost]):
                 ldap.user('tuser').add(password='Secret123')
 
                 client.sssd.start()
-                assert client.auth.ssh.password('tuser', 'Secret123')
+                assert client.auth.ssh.password('tuser', password='Secret123')
         """
 
         self.passwd: PasswdUtils = PasswdUtils(host)
@@ -210,7 +208,7 @@ class SUAuthenticationUtils(MultihostUtility[MultihostHost]):
         super().__init__(host)
         self.fs: LinuxFileSystem = fs
 
-    def password_with_output(self, username: str, password: str) -> tuple[int, int, str, str]:
+    def password_with_output(self, username: str, *, password: str) -> tuple[int, int, str, str]:
         """
         Call ``su - $username`` and authenticate the user with password and captures standard output and error.
 
@@ -280,9 +278,9 @@ class SUAuthenticationUtils(MultihostUtility[MultihostHost]):
 
         return result.rc, cmdrc, stdout, result.stderr
 
-    def password(self, username: str, password: str) -> bool:
+    def password(self, username: str, *, password: str) -> bool:
         """
-        SSH to the remote host and authenticate the user with password.
+        Call ``su - $username`` and authenticate the user with password.
 
         :param username: Username.
         :type username: str
@@ -291,7 +289,7 @@ class SUAuthenticationUtils(MultihostUtility[MultihostHost]):
         :return: True if authentication was successful, False otherwise.
         :rtype: bool
         """
-        rc, _, _, _ = self.password_with_output(username, password)
+        rc, _, _, _ = self.password_with_output(username, password=password)
         return rc == 0
 
     def password_expired_with_output(
@@ -911,7 +909,7 @@ class SSHAuthenticationUtils(MultihostUtility[MultihostHost]):
         """
 
     def password_with_output(
-        self, username: str, password: str, hostname: str = "localhost"
+        self, username: str, *, password: str, hostname: str = "localhost"
     ) -> tuple[int, int, str, str]:
         """
         SSH to the remote host and authenticate the user with password and captures standard output and error.
@@ -989,7 +987,7 @@ class SSHAuthenticationUtils(MultihostUtility[MultihostHost]):
 
         return result.rc, cmdrc, stdout, result.stderr
 
-    def password(self, username: str, password: str, hostname: str = "localhost") -> bool:
+    def password(self, username: str, *, password: str, hostname: str = "localhost") -> bool:
         """
         SSH to the remote host and authenticate the user with password.
 
@@ -1002,7 +1000,7 @@ class SSHAuthenticationUtils(MultihostUtility[MultihostHost]):
         :return: True if authentication was successful, False otherwise.
         :rtype: bool
         """
-        rc, _, _, _ = self.password_with_output(username, password, hostname)
+        rc, _, _, _ = self.password_with_output(username, password=password, hostname=hostname)
         return rc == 0
 
     def password_expired_with_output(
@@ -1302,14 +1300,14 @@ class SudoAuthenticationUtils(MultihostUtility[MultihostHost]):
     Methods for testing authentication and authorization via sudo.
     """
 
-    def run(self, username: str, password: str | None = None, *, command: str) -> bool:
+    def run(self, username: str, password: str = "Secret123", *, command: str) -> bool:
         """
         Execute sudo command.
 
         :param username: Username that calls sudo.
         :type username: str
-        :param password: User password, defaults to None
-        :type password: str | None, optional
+        :param password: User password, defaults to ``Secret123``
+        :type password: str, optional
         :param command: Command to execute (make sure to properly escape any quotes).
         :type command: str
         :return: True if the command was successful, False if the command failed or the user can not run sudo.
@@ -1353,14 +1351,14 @@ class SudoAuthenticationUtils(MultihostUtility[MultihostHost]):
 
         return result
 
-    def list(self, username: str, password: str | None = None, *, expected: list[str] | None = None) -> bool:
+    def list(self, username: str, password: str = "Secret123", *, expected: list[str] | None = None) -> bool:
         """
         List commands that the user can run under sudo.
 
         :param username: Username that runs sudo.
         :type username: str
-        :param password: User password, defaults to None
-        :type password: str | None, optional
+        :param password: User password, defaults to ``Secret123``
+        :type password: str, optional
         :param expected: List of expected commands (formatted as sudo output), defaults to None
         :type expected: list[str] | None, optional
         :return: True if the user can run sudo and allowed commands match expected commands (if set), False otherwise.

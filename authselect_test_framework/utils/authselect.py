@@ -23,7 +23,7 @@ class AuthselectUtils(MultihostUtility[MultihostHost]):
 
         @pytest.mark.topology(Profile.SSSD)
         @pytest.mark.topology(Profile.Winbind)
-        def test_example(client: Client, provider: GenericServer):
+        def test_example(client: Client, provider: GenericProvider):
             client.authselect.select('sssd', ['with-mkhomedir'])
 
     .. note::

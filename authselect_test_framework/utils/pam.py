@@ -23,7 +23,7 @@ class PAMAccessUtils(MultihostUtility):
 
         @pytest.mark.topology(Profile.SSSD)
         @pytest.mark.topology(Profile.Winbind)
-        def test_example(client: Client, provider: GenericServer):
+        def test_example(client: Client, provider: GenericProvider):
             # Add users
             provider.user("user-1").add()
             provider.user("user-2").add()
@@ -47,8 +47,8 @@ class PAMAccessUtils(MultihostUtility):
                 client.sssd.start()
 
                 # Check the results
-                assert client.auth.ssh.password("user-1", "Secret123")
-                assert not client.auth.ssh.password("user-2", "Secret123")
+                assert client.auth.ssh.password("user-1", password="Secret123")
+                assert not client.auth.ssh.password("user-2", password="Secret123")
     """
 
     def __init__(self, host: MultihostHost, fs: LinuxFileSystem, file: str = "/etc/security/access.conf") -> None:
@@ -141,7 +141,7 @@ class PAMFaillockUtils(MultihostUtility):
 
         @pytest.mark.topology(Profile.SSSD)
         @pytest.mark.topology(Profile.Winbind)
-        def test_example(client: Client, provider: GenericServer):
+        def test_example(client: Client, provider: GenericProvider):
             # Add user
             provider.user("user-1").add()
 
@@ -154,13 +154,13 @@ class PAMFaillockUtils(MultihostUtility):
                 client.sssd.start()
 
                 # Check the results
-                assert client.auth.ssh.password("user-1", "Secret123")
+                assert client.auth.ssh.password("user-1", password="Secret123")
 
                 # Three failed login attempts
                 for i in range(3):
-                    assert not client.auth.ssh.password("user-1", "bad_password")
+                    assert not client.auth.ssh.password("user-1", password="bad_password")
 
-                assert not client.auth.ssh.password("user-1", "Secret123")
+                assert not client.auth.ssh.password("user-1", password="Secret123")
     """
 
     def __init__(self, host: MultihostHost, fs: LinuxFileSystem, file: str = "/etc/security/faillock.conf") -> None:

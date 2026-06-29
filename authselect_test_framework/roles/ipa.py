@@ -26,15 +26,16 @@ from ..misc import (
     to_list_without_none,
 )
 from ..misc.globals import test_venv_bin
-from ..roles.client import Client
 from ..utils.sssd import SSSDUtils
 from .base import BaseLinuxRole, BaseObject
+from .client import Client
 from .generic import (
     GenericCertificateAuthority,
     GenericGroup,
     GenericNetgroup,
     GenericNetgroupMember,
     GenericPasswordPolicy,
+    GenericProvider,
     GenericSudoRule,
     GenericUser,
     GroupMemberField,
@@ -57,7 +58,7 @@ __all__ = [
 ]
 
 
-class IPA(BaseLinuxRole[IPAHost]):
+class IPA(BaseLinuxRole[IPAHost], GenericProvider):
     """
     IPA role.
 
@@ -94,12 +95,12 @@ class IPA(BaseLinuxRole[IPAHost]):
 
         self.name: str = "ipa"
         """
-        Server role identifier (``ipa``).
+        Provider role identifier (``ipa``).
         """
 
-        self.server: str = self.host.hostname
+        self.hostname: str = self.host.hostname
         """
-        Generic server name.
+        Provider hostname.
         """
 
         self.sssd: SSSDUtils = SSSDUtils(self.host, self.fs, self.svc, self.authselect, load_config=True)
@@ -389,14 +390,14 @@ class IPA(BaseLinuxRole[IPAHost]):
 
             @pytest.mark.topology(Profile.SSSD)
             def test_example(client: Client, ipa: IPA):
-                user = ipa.user('user-1').add(password="Secret123")
+                user = ipa.user('user-1').add()
                 ipa.sudorule('testrule').add(user=user, host='ALL', command='/bin/ls')
 
                 client.sssd.common.sudo()
                 client.sssd.start()
 
                 # Test that user can run /bin/ls
-                assert client.auth.sudo.run('user-1', 'Secret123', command='/bin/ls')
+                assert client.auth.sudo.run('user-1', command='/bin/ls')
 
         :param name: Sudo rule name.
         :type name: str
@@ -553,7 +554,7 @@ class IPAUser(IPAObject, GenericUser):
     """
     IPA user management.
 
-    :class:`IPAUser` implements :class:`GenericUser` for static typing and server-agnostic tests.
+    :class:`IPAUser` implements :class:`GenericUser` for static typing and provider-agnostic tests.
     IPA-specific keyword arguments on :meth:`add` and :meth:`modify` are in addition to the generic API.
     """
 
@@ -627,6 +628,7 @@ class IPAUser(IPAObject, GenericUser):
             attrs["password-expiration"] = (self.cli.option.VALUE, "20380101120000Z")
 
         self._add(attrs, input=password or None)
+
         return self
 
     def delete(self) -> None:
@@ -1222,7 +1224,7 @@ class IPAGroup(IPAObject, GenericGroup):
     """
     IPA group management.
 
-    :class:`IPAGroup` implements :class:`GenericGroup` for static typing and server-agnostic tests.
+    :class:`IPAGroup` implements :class:`GenericGroup` for static typing and provider-agnostic tests.
     IPA-specific keyword arguments on :meth:`add` and external members (``str``) on membership
     methods are in addition to the generic API.
     """
@@ -1532,7 +1534,7 @@ class IPANetgroup(IPAObject, GenericNetgroup):
     IPA netgroup management.
 
     :class:`IPANetgroup` implements :class:`GenericNetgroup` for static typing and
-    server-agnostic tests. IPA-specific ``group`` and ``hostgroup`` members on
+    provider-agnostic tests. IPA-specific ``group`` and ``hostgroup`` members on
     :meth:`add_member` are in addition to the generic API.
     """
 
@@ -1784,7 +1786,7 @@ class IPASudoRule(IPAObject, GenericSudoRule):
     IPA sudo rule management.
 
     :class:`IPASudoRule` implements :class:`GenericSudoRule` for static typing and
-    server-agnostic tests.
+    provider-agnostic tests.
     """
 
     def __init__(self, role: IPA, name: str) -> None:
@@ -2091,7 +2093,7 @@ class IPAPasswordPolicy(IPAObject, GenericPasswordPolicy):
     IPA password policy management.
 
     :class:`IPAPasswordPolicy` implements :class:`GenericPasswordPolicy` for static typing
-    and server-agnostic tests.
+    and provider-agnostic tests.
     """
 
     def __init__(self, role: IPA, name: str = "ipausers") -> None:
@@ -2252,7 +2254,7 @@ class IPACertificateAuthority(GenericCertificateAuthority):
     FreeIPA Certificate Authority operations.
 
     :class:`IPACertificateAuthority` implements :class:`GenericCertificateAuthority` for
-    static typing and server-agnostic tests. It requests, revokes, places/removes
+    static typing and provider-agnostic tests. It requests, revokes, places/removes
     certificate holds, and retrieves certificate information via the ``ipa`` CLI.
     :meth:`request` accepts IPA-specific keyword arguments in addition to the generic API.
 

@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Protocol
 
-from pytest_mh import MultihostRole
-from pytest_mh.utils.firewall import Firewall
-
-from ..hosts.base import BaseHost
+from ..topology import Profile
 from .base import BaseObject
 
 __all__ = [
-    "ProtocolName",
-    "GenericServer",
+    "GenericProvider",
     "GenericOrganizationalUnit",
     "GenericPasswordPolicy",
     "GenericUser",
@@ -33,17 +28,9 @@ __all__ = [
 ]
 
 
-class ProtocolName(Protocol):
+class GenericProvider(ABC):
     """
-    Used to hint that the type must contain name attribute.
-    """
-
-    name: str
-
-
-class GenericServer(ABC, MultihostRole[BaseHost]):
-    """
-    Generic server interface. IPA and Samba roles implement this interface.
+    Generic provider interface. IPA, Samba and Client roles implement this interface.
 
     .. note::
 
@@ -51,35 +38,23 @@ class GenericServer(ABC, MultihostRole[BaseHost]):
         used for type hinting in profile tests that run on multiple topologies.
     """
 
-    @property
-    @abstractmethod
-    def domain(self) -> str:
-        """
-        Domain name.
-        """
-        pass
+    domain: str
+    """Domain name."""
+
+    realm: str
+    """Kerberos realm."""
+
+    name: str
+    """Provider role identifier (for example ``ipa`` or ``ad``)."""
+
+    hostname: str
+    """Provider hostname."""
 
     @property
     @abstractmethod
-    def realm(self) -> str:
+    def profile(self) -> Profile:
         """
-        Kerberos realm.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """
-        Server role identifier (for example ``ipa`` or ``ad``).
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def server(self) -> str:
-        """
-        Generic server name.
+        Active authselect profile for the current topology.
         """
         pass
 
@@ -93,16 +68,6 @@ class GenericServer(ABC, MultihostRole[BaseHost]):
 
     @property
     @abstractmethod
-    def features(self) -> dict[str, Any]:
-        pass
-
-    @property
-    @abstractmethod
-    def firewall(self) -> Firewall:
-        pass
-
-    @property
-    @abstractmethod
     def password_policy(self) -> GenericPasswordPolicy:
         """
         Domain password policy management.
@@ -112,12 +77,12 @@ class GenericServer(ABC, MultihostRole[BaseHost]):
 
             @pytest.mark.topology(Profile.SSSD)
             @pytest.mark.topology(Profile.Winbind)
-            def test_example(client: Client, server: GenericServer):
+            def test_example(client: Client, provider: GenericProvider):
                 # Enable password complexity
-                server.password_policy.complexity(enable=True)
+                provider.password_policy.complexity(enable=True)
 
                 # Set 3 login attempts and 30 lockout duration
-                server.password_policy.lockout(attempts=3, duration=30)
+                provider.password_policy.lockout(attempts=3, duration=30)
         """
         pass
 
@@ -138,9 +103,9 @@ class GenericServer(ABC, MultihostRole[BaseHost]):
 
             @pytest.mark.topology(Profile.SSSD)
             @pytest.mark.topology(Profile.Winbind)
-            def test_example(client: Client, server: GenericServer):
+            def test_example(client: Client, provider: GenericProvider):
                 # Create user
-                server.user('user-1').add()
+                provider.user('user-1').add()
 
                 # Start SSSD
                 client.sssd.start()
@@ -167,12 +132,12 @@ class GenericServer(ABC, MultihostRole[BaseHost]):
 
             @pytest.mark.topology(Profile.SSSD)
             @pytest.mark.topology(Profile.Winbind)
-            def test_example(client: Client, server: GenericServer):
+            def test_example(client: Client, provider: GenericProvider):
                 # Create user
-                user = server.user('user-1').add()
+                user = provider.user('user-1').add()
 
                 # Create secondary group and add user as a member
-                server.group('group-1').add().add_member(user)
+                provider.group('group-1').add().add_member(user)
 
                 # Start SSSD
                 client.sssd.start()
@@ -200,13 +165,13 @@ class GenericServer(ABC, MultihostRole[BaseHost]):
 
             @pytest.mark.topology(Profile.SSSD)
             @pytest.mark.topology(Profile.Winbind)
-            def test_example_netgroup(client: Client, server: GenericServer):
+            def test_example_netgroup(client: Client, provider: GenericProvider):
                 # Create user
-                user = server.user("user-1").add()
+                user = provider.user("user-1").add()
 
                 # Create two netgroups
-                ng1 = server.netgroup("ng-1").add()
-                ng2 = server.netgroup("ng-2").add()
+                ng1 = provider.netgroup("ng-1").add()
+                ng2 = provider.netgroup("ng-2").add()
 
                 # Add user and ng2 as members to ng1
                 ng1.add_member(user=user)
@@ -243,15 +208,15 @@ class GenericServer(ABC, MultihostRole[BaseHost]):
 
             @pytest.mark.topology(Profile.SSSD)
             @pytest.mark.topology(Profile.Winbind)
-            def test_example(client: Client, server: GenericServer):
-                user = server.user('user-1').add(password="Secret123")
-                server.sudorule('testrule').add(user=user, host='ALL', command='/bin/ls')
+            def test_example(client: Client, provider: GenericProvider):
+                user = provider.user('user-1').add()
+                provider.sudorule('testrule').add(user=user, host='ALL', command='/bin/ls')
 
                 client.sssd.common.sudo()
                 client.sssd.start()
 
                 # Test that user can run /bin/ls
-                assert client.auth.sudo.run('user-1', 'Secret123', command='/bin/ls')
+                assert client.auth.sudo.run('user-1', command='/bin/ls')
 
         :param name: Sudo rule name.
         :type name: str
@@ -266,28 +231,28 @@ class GenericServer(ABC, MultihostRole[BaseHost]):
         """
         Certificate Authority management.
 
-        Provides certificate operations across different server roles.
+        Provides certificate operations across different provider roles.
 
         .. code-block:: python
             :caption: Example usage
 
             @pytest.mark.topology(Profile.SSSD)
             @pytest.mark.topology(Profile.Winbind)
-            def test_certificate_operations(client: Client, server: GenericServer):
+            def test_certificate_operations(client: Client, provider: GenericProvider):
                 # Request certificate
-                cert, key, csr = server.ca.request(...)
+                cert, key, csr = provider.ca.request(...)
 
                 # Revoke certificate
-                server.ca.revoke(cert, reason="key_compromise")
+                provider.ca.revoke(cert, reason="key_compromise")
 
                 # Place certificate on hold
-                server.ca.revoke_hold(cert)
+                provider.ca.revoke_hold(cert)
 
                 # Remove hold
-                server.ca.revoke_hold_remove(cert)
+                provider.ca.revoke_hold_remove(cert)
 
                 # Get certificate details
-                cert_details = server.ca.get(cert)
+                cert_details = provider.ca.get(cert)
         """
         pass
 
@@ -814,16 +779,16 @@ class GenericNetgroupMember(object):
         self,
         *,
         host: str | None = None,
-        user: GenericUser | ProtocolName | str | None = None,
-        ng: GenericNetgroup | ProtocolName | str | None = None,
+        user: GenericUser | str | None = None,
+        ng: GenericNetgroup | str | None = None,
     ) -> None:
         """
         :param host: Host, defaults to None
         :type host: str | None, optional
         :param user: User, defaults to None
-        :type user: GenericUser | ProtocolName | str | None, optional
+        :type user: GenericUser | str | None, optional
         :param ng: Netgroup, defaults to None
-        :type ng: GenericNetgroup | ProtocolName | str | None, optional
+        :type ng: GenericNetgroup | str | None, optional
         """
         self.host: str | None = host
         """Member host."""
@@ -836,7 +801,7 @@ class GenericNetgroupMember(object):
 
     def _get_name(
         self,
-        item: GenericUser | GenericNetgroup | GenericGroup | ProtocolName | str | None = None,
+        item: GenericUser | GenericNetgroup | GenericGroup | str | None = None,
     ) -> str | None:
         if item is None:
             return None
@@ -864,15 +829,11 @@ class GenericNetgroupMember(object):
         return f"({host},{user},)"
 
 
-SudoRuleUserField = (
-    str | GenericUser | GenericGroup | ProtocolName | list[str | GenericUser | GenericGroup | ProtocolName] | None
-)
-SudoRuleHostField = str | ProtocolName | list[str | ProtocolName] | None
-SudoRuleCommandField = str | ProtocolName | list[str | ProtocolName] | None
-SudoRuleRunAsUserField = (
-    str | GenericUser | GenericGroup | ProtocolName | list[str | GenericUser | GenericGroup | ProtocolName] | None
-)
-SudoRuleRunAsGroupField = str | GenericGroup | ProtocolName | list[str | GenericGroup | ProtocolName] | None
+SudoRuleUserField = str | GenericUser | GenericGroup | list[str | GenericUser | GenericGroup] | None
+SudoRuleHostField = str | list[str] | None
+SudoRuleCommandField = str | list[str] | None
+SudoRuleRunAsUserField = str | GenericUser | GenericGroup | list[str | GenericUser | GenericGroup] | None
+SudoRuleRunAsGroupField = str | GenericGroup | list[str | GenericGroup] | None
 
 
 class GenericSudoRule(ABC, BaseObject):

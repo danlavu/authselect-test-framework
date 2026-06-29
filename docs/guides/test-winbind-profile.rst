@@ -12,16 +12,16 @@ Marker and fixtures
     import pytest
 
     from authselect_test_framework.roles.client import Client
-    from authselect_test_framework.roles.generic import GenericServer
+    from authselect_test_framework.roles.generic import GenericProvider
     from authselect_test_framework.topology import Profile
 
 
     @pytest.mark.topology(Profile.Winbind)
-    def test_winbind__example(client: Client, provider: GenericServer):
+    def test_winbind__example(client: Client, provider: GenericProvider):
         ...
 
 * ``client`` — client configured for winbind (SSSD disabled by :class:`~authselect_test_framework.controllers.WinbindController`)
-* ``provider`` — ``sssd.samba[0]`` (Samba AD, implements :class:`~authselect_test_framework.roles.generic.GenericServer`)
+* ``provider`` — ``sssd.samba[0]`` (Samba AD, implements :class:`~authselect_test_framework.roles.generic.GenericProvider`)
 
 Common pattern
 **************
@@ -106,7 +106,7 @@ with-faillock
 with-pamaccess
 ==============
 
-``test_winbind__with_pamaccess`` — SSH access control; no ``use_fully_qualified_names`` tweak.
+``test_winbind__with_pamaccess`` — SSH access control.
 
 .. code-block:: python
 
@@ -191,7 +191,7 @@ SSSD vs winbind differences
    * - Identity service
      - ``client.sssd.start()``
      - ``client.winbind.start()``
-   * - Server fixture
+   * - Provider fixture
      - FreeIPA (``provider`` → IPA)
      - Samba AD (``provider`` → Samba)
    * - Sudo / pamaccess extras

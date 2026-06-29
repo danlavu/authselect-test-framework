@@ -69,6 +69,20 @@ class SambaHost(BaseLDAPDomainHost, BaseLinuxHost):
 
         return self._features
 
+    def setup(self) -> None:
+        """
+        Back up ``/home`` before each test so it can be restored in :meth:`teardown`.
+        """
+        self.fs.backup("/home")
+        super().setup()
+
+    def teardown(self) -> None:
+        """
+        Restore ``/home`` to its pre-test state.
+        """
+        self.fs.restore("/home")
+        super().teardown()
+
     def start(self) -> None:
         self.svc.start("samba.service")
 

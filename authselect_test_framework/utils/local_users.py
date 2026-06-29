@@ -328,8 +328,13 @@ class LocalUser(GenericUser):
         :rtype: LocalUser
         """
         del email  # Local /etc/passwd user management does not set a mail attribute here.
-        if home is not None:
-            self.util.fs.backup(home)
+
+        if gid is not None:
+            group_args: CLIBuilderArgs = {
+                "name": (self.util.cli.option.POSITIONAL, self._name),
+                "gid": (self.util.cli.option.VALUE, gid),
+            }
+            self.util.host.conn.run(self.util.cli.command("groupadd", group_args), raise_on_error=False)
 
         args: CLIBuilderArgs = {
             "name": (self.util.cli.option.POSITIONAL, self._name),
@@ -340,6 +345,9 @@ class LocalUser(GenericUser):
             "shell": (self.util.cli.option.VALUE, shell),
         }
 
+        if home is not None:
+            args["no-create-home"] = (self.util.cli.option.SWITCH, True)
+
         passwd = f" && passwd --stdin '{self._name}'" if password else ""
         self.util.logger.info(f'Creating local user "{self._name}" on {self.util.host.hostname}')
         self.util.host.conn.run(
@@ -347,6 +355,7 @@ class LocalUser(GenericUser):
         )
 
         self.util._users.append(self._name)
+
         return self
 
     def modify(
@@ -1167,8 +1176,8 @@ class LocalSudoRule(GenericSudoRule):
     """
     Local sudo rule management (``/etc/sudoers.d/`` drop-ins).
 
-    See :class:`GenericSudoRule` for parameter meanings. ``ProtocolName`` values
-    (including :class:`LocalSudoAlias`) are emitted as bare sudoers names.
+    See :class:`GenericSudoRule` for parameter meanings. Objects with a ``name``
+    attribute (including :class:`LocalSudoAlias`) are emitted as bare sudoers names.
     """
 
     default_user: str = "ALL"

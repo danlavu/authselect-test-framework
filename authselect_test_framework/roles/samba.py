@@ -16,15 +16,17 @@ from ..misc import attrs_parse, to_list_of_strings
 from ..utils.ldap import LDAPRecordAttributes
 from .base import BaseLinuxLDAPRole, BaseObject, DeleteAttribute
 from .generic import (
+    GenericCertificateAuthority,
     GenericComputer,
     GenericGroup,
+    GenericNetgroup,
     GenericOrganizationalUnit,
     GenericPasswordPolicy,
+    GenericProvider,
     GenericSite,
     GenericSudoRule,
     GenericUser,
     GroupMemberField,
-    ProtocolName,
     SudoRuleCommandField,
     SudoRuleHostField,
     SudoRuleRunAsGroupField,
@@ -44,7 +46,7 @@ __all__ = [
 ]
 
 
-class Samba(BaseLinuxLDAPRole[SambaHost]):
+class Samba(BaseLinuxLDAPRole[SambaHost], GenericProvider):
     """
     Samba role.
 
@@ -86,13 +88,13 @@ class Samba(BaseLinuxLDAPRole[SambaHost]):
 
         self.name: str = "ad"
         """
-        Server role identifier. Samba is a community-developed AD clone; SSSD has no
+        Provider role identifier. Samba is a community-developed AD clone; SSSD has no
         dedicated Samba backend, so this role reports ``ad``.
         """
 
-        self.server: str = self.host.hostname
+        self.hostname: str = self.host.hostname
         """
-        Generic server name.
+        Provider hostname.
         """
 
     @property
@@ -238,7 +240,7 @@ class Samba(BaseLinuxLDAPRole[SambaHost]):
                 client.sssd.start()
 
                 # Test that user can run /bin/ls
-                assert client.auth.sudo.run('user-1', 'Secret123', command='/bin/ls')
+                assert client.auth.sudo.run('user-1', command='/bin/ls')
 
         :param name: Unit name.
         :type name: str
@@ -277,14 +279,14 @@ class Samba(BaseLinuxLDAPRole[SambaHost]):
 
             @pytest.mark.topology(Profile.Winbind)
             def test_example(client: Client, samba: Samba):
-                user = samba.user('user-1').add(password="Secret123")
+                user = samba.user('user-1').add()
                 samba.sudorule('testrule').add(user=user, host='ALL', command='/bin/ls')
 
                 client.sssd.common.sudo()
                 client.sssd.start()
 
                 # Test that user can run /bin/ls
-                assert client.auth.sudo.run('user-1', 'Secret123', command='/bin/ls')
+                assert client.auth.sudo.run('user-1', command='/bin/ls')
 
         :param name: Rule name.
         :type name: str
@@ -294,6 +296,19 @@ class Samba(BaseLinuxLDAPRole[SambaHost]):
         :rtype: SambaSudoRule
         """
         return SambaSudoRule(self, name, basedn)
+
+    def netgroup(self, name: str) -> GenericNetgroup:
+        """
+        Netgroup management (not supported on the Samba provider).
+        """
+        raise NotImplementedError("Netgroups are not supported on the Samba provider")
+
+    @property
+    def ca(self) -> GenericCertificateAuthority:
+        """
+        Certificate Authority management (not supported on the Samba provider).
+        """
+        raise NotImplementedError("Certificate authority is not supported on the Samba provider")
 
 
 class SambaObject(BaseObject):
@@ -457,7 +472,7 @@ class SambaUser(SambaObject, GenericUser):
     Samba user management.
 
     :class:`SambaUser` implements :class:`GenericUser` for static typing and
-    server-agnostic tests. Samba-specific keyword arguments on :meth:`modify` are in
+    provider-agnostic tests. Samba-specific keyword arguments on :meth:`modify` are in
     addition to the generic API.
     """
 
@@ -549,6 +564,7 @@ class SambaUser(SambaObject, GenericUser):
         }
 
         self._add(attrs)
+
         return self
 
     def delete(self) -> None:
@@ -701,7 +717,7 @@ class SambaGroup(SambaObject, GenericGroup):
     Samba group management.
 
     :class:`SambaGroup` implements :class:`GenericGroup` for static typing and
-    server-agnostic tests. Samba-specific keyword arguments on :meth:`add` are in
+    provider-agnostic tests. Samba-specific keyword arguments on :meth:`add` are in
     addition to the generic API.
     """
 
@@ -888,7 +904,7 @@ class SambaComputer(SambaObject, GenericComputer):
     Samba computer management.
 
     :class:`SambaComputer` implements :class:`GenericComputer` for static typing and
-    server-agnostic tests.
+    provider-agnostic tests.
     """
 
     def __init__(self, role: Samba, name: str) -> None:
@@ -933,7 +949,7 @@ class SambaSite(SambaObject, GenericSite):
     """
     Samba site management.
 
-    :class:`SambaSite` implements :class:`GenericSite` for static typing and server-agnostic tests.
+    :class:`SambaSite` implements :class:`GenericSite` for static typing and provider-agnostic tests.
     """
 
     def __init__(self, role: Samba, name: str) -> None:
@@ -977,7 +993,7 @@ class SambaPasswordPolicy(GenericPasswordPolicy):
     Samba domain password policy management.
 
     :class:`SambaPasswordPolicy` implements :class:`GenericPasswordPolicy` for static
-    typing and server-agnostic tests. Settings apply via ``samba-tool domain
+    typing and provider-agnostic tests. Settings apply via ``samba-tool domain
     passwordsettings``.
     """
 
@@ -1209,7 +1225,7 @@ class SambaSudoRule(GenericSudoRule):
 
         return value
 
-    def _format_values(self, value: str | ProtocolName | list[str | ProtocolName] | None) -> list[str] | None:
+    def _format_values(self, value: SudoRuleHostField | SudoRuleCommandField) -> list[str] | None:
         if value is None:
             return None
 
@@ -1239,16 +1255,16 @@ class SambaSudoRule(GenericSudoRule):
 
         return [self._sudo_group_name(item) for item in value]
 
-    def _sudo_user_name(self, value: str | SambaUser | SambaGroup | GenericUser | GenericGroup | ProtocolName) -> str:
+    def _sudo_user_name(self, value: str | SambaUser | SambaGroup | GenericUser | GenericGroup) -> str:
         if isinstance(value, (SambaGroup, GenericGroup)):
             return f"%{self._item_name(value)}"
 
         return self._item_name(value)
 
-    def _sudo_group_name(self, value: str | SambaGroup | GenericGroup | ProtocolName) -> str:
+    def _sudo_group_name(self, value: str | SambaGroup | GenericGroup) -> str:
         return self._item_name(value)
 
-    def _item_name(self, value: str | SambaUser | SambaGroup | GenericUser | GenericGroup | ProtocolName) -> str:
+    def _item_name(self, value: str | SambaUser | SambaGroup | GenericUser | GenericGroup) -> str:
         if isinstance(value, str):
             return value
 

@@ -45,8 +45,85 @@ Available profiles
      - client + samba
      - Winbind profile against a Samba AD domain
 
-Server fixture tests
-====================
+All profiles — :attr:`~authselect_test_framework.topology.ProfileGroup.AnyProfile`
+==================================================================================
+
+Some authselect features behave the same on every profile. Put those tests in
+``test_all_profiles.py`` and mark them with
+:class:`~authselect_test_framework.topology.ProfileGroup`. pytest-mh then
+parametrizes the test and runs it once per profile (local, sssd, winbind).
+
+From ``test_all_profiles__with_ecryptfs``:
+
+.. code-block:: python
+
+    import pytest
+
+    from authselect_test_framework.roles.client import Client
+    from authselect_test_framework.topology import Profile, ProfileGroup
+
+
+    @pytest.mark.topology(ProfileGroup.AnyProfile)
+    def test_all_profiles__with_ecryptfs(client: Client, profile: Profile):
+        client.authselect.select(profile.value.name, ["with-ecryptfs"])
+        client.authselect.assert_selected(profile.value.name, ["with-ecryptfs"])
+
+        assert client.authselect.is_feature_enabled("with-ecryptfs"), (
+            "with-ecryptfs should be enabled!"
+        )
+        system_auth = client.fs.read("/etc/pam.d/system-auth")
+        assert "pam_ecryptfs.so" in system_auth, "system-auth should include pam_ecryptfs!"
+
+        client.authselect.disable_feature(["with-ecryptfs"])
+
+        assert not client.authselect.is_feature_enabled("with-ecryptfs"), (
+            "with-ecryptfs should be disabled!"
+        )
+
+Functional shared tests need users or identity services that differ per profile.
+Use the ``profile`` fixture and branch on :class:`~authselect_test_framework.topology.Profile`
+members instead of inspecting host roles or ``mh_topology_mark``:
+
+.. code-block:: python
+
+    from authselect_test_framework.roles.generic import GenericProvider
+    from authselect_test_framework.topology import Profile, ProfileGroup
+
+
+    @pytest.mark.topology(ProfileGroup.AnyProfile)
+    def test_all_profiles__with_faillock(
+        client: Client,
+        provider: GenericProvider,
+        profile: Profile,
+    ):
+        provider.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
+
+        client.authselect.select(profile.value.name, ["with-faillock"])
+        start_client_service(client, profile, users=["user-1"])
+
+        if profile is not Profile.Local:
+            assert client.tools.id("user-1") is not None, (
+                f"user should be resolvable via {profile.value.name}!"
+            )
+
+        assert client.auth.su.password("user-1", "Secret123"), (
+            "initial su authentication should succeed!"
+        )
+
+Notes:
+
+* ``profile`` — :func:`~authselect_test_framework.fixtures.profile` fixture;
+  ``Profile.Local``, ``Profile.SSSD``, or ``Profile.Winbind`` for the current run
+* ``profile.value.name`` — authselect profile string (``"local"``, ``"sssd"``,
+  ``"winbind"``)
+* ``provider`` must appear in the test signature when the test uses it (do not
+  call ``request.getfixturevalue("provider")``)
+* ``provider.user(...).add()`` creates users on the active provider (local client,
+  IPA, or Samba); ``start_client_service()`` in ``test_all_profiles.py`` starts
+  profile-specific identity services
+
+Provider fixture tests
+======================
 
 Authselect tests are grouped by profile (``test_sssd.py``, ``test_winbind.py``).
 The ``provider`` fixture points to ``sssd.ipa[0]`` on the SSSD profile and
@@ -62,12 +139,12 @@ From ``test_sssd__with_sudo``:
     import pytest
 
     from authselect_test_framework.roles.client import Client
-    from authselect_test_framework.roles.generic import GenericServer
+    from authselect_test_framework.roles.generic import GenericProvider
     from authselect_test_framework.topology import Profile
 
 
     @pytest.mark.topology(Profile.SSSD)
-    def test_sssd__with_sudo(client: Client, provider: GenericServer):
+    def test_sssd__with_sudo(client: Client, provider: GenericProvider):
         provider.user("user-1").add()
         provider.sudorule("test").add(user="user-1", host="ALL", command="/bin/ls")
 
@@ -98,14 +175,14 @@ From ``test_winbind__with_pamaccess``:
     import pytest
 
     from authselect_test_framework.roles.client import Client
-    from authselect_test_framework.roles.generic import GenericServer
+    from authselect_test_framework.roles.generic import GenericProvider
     from authselect_test_framework.topology import Profile
     from authselect_test_framework.utils.pam import PAMAccessUtils
     from pytest_mh import mh_utility
 
 
     @pytest.mark.topology(Profile.Winbind)
-    def test_winbind__with_pamaccess(client: Client, provider: GenericServer):
+    def test_winbind__with_pamaccess(client: Client, provider: GenericProvider):
         provider.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
         provider.user("user-2").add(uid=10002, gid=10002, home="/home/user-2", shell="/bin/bash")
 
@@ -162,6 +239,8 @@ Authselect tests load the framework through ``conftest.py``:
 
 .. seealso::
 
-    :doc:`guides/test-sssd-profile` for SSSD profile examples from ``test_sssd.py``.
-    :doc:`guides/test-winbind-profile` for Winbind profile examples from ``test_winbind.py``.
+    ``src/tests/system/tests/test_all_profiles.py`` for shared feature tests across
+    all profiles.
+    :doc:`guides/test-sssd-profile` for SSSD-only examples from ``test_sssd.py``.
+    :doc:`guides/test-winbind-profile` for Winbind-only examples from ``test_winbind.py``.
     :doc:`api` for the full API reference.

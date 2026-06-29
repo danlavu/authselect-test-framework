@@ -5,6 +5,10 @@ from __future__ import annotations
 import os
 
 import pytest
+from pytest_mh import TopologyMark
+
+from .config import AuthselectTopologyMark
+from .topology import Profile, profile_from_topology_mark
 
 
 @pytest.fixture(scope="session")
@@ -43,3 +47,17 @@ def testdatadir(moduledatadir: str, request: pytest.FixtureRequest) -> str:
 
     name = request.node.originalname
     return os.path.join(moduledatadir, name)
+
+
+@pytest.fixture(scope="function")
+def profile(mh_topology_mark: TopologyMark) -> Profile:
+    """
+    Current authselect profile for parametrized topology tests.
+
+    :return: Profile enum member (``Profile.Local``, ``Profile.SSSD``, or ``Profile.Winbind``).
+    :rtype: Profile
+    """
+    if not isinstance(mh_topology_mark, AuthselectTopologyMark):
+        raise ValueError(f"Expected AuthselectTopologyMark, got {type(mh_topology_mark)}")
+
+    return profile_from_topology_mark(mh_topology_mark)

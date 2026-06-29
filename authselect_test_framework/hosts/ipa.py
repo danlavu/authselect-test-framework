@@ -104,8 +104,9 @@ class IPAHost(BaseDomainHost, BaseLinuxHost):
 
     def setup(self) -> None:
         """
-        Truncate existing IPA logs before each test to avoid need for restart.
+        Back up ``/home`` and truncate existing IPA logs before each test.
         """
+        self.fs.backup("/home")
         self.conn.run("""
             set -ex
             truncate --size 0 /var/log/dirsrv/*/*
@@ -113,6 +114,14 @@ class IPAHost(BaseDomainHost, BaseLinuxHost):
             truncate --size 0 /var/log/ipa/*
             truncate --size 0 /var/log/krb5kdc.log
             """)
+        super().setup()
+
+    def teardown(self) -> None:
+        """
+        Restore ``/home`` to its pre-test state.
+        """
+        self.fs.restore("/home")
+        super().teardown()
 
     def kinit(self) -> None:
         """

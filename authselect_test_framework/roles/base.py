@@ -19,6 +19,7 @@ from pytest_mh.utils.services import SystemdServices
 from pytest_mh.utils.tc import LinuxTrafficControl
 
 from ..hosts.base import BaseHost, BaseLDAPDomainHost
+from ..topology import Profile, profile_from_topology_mark
 from ..utils.authentication import AuthenticationUtils
 from ..utils.authselect import AuthselectUtils
 from ..utils.ldap import LDAPUtils
@@ -147,6 +148,11 @@ class BaseLinuxRole(BaseRole[HostType]):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
+        self._profile: Profile | None = None
+        """
+        Active authselect profile for the current topology.
+        """
+
         self.authselect: AuthselectUtils = AuthselectUtils(self.host)
         """
         Manage nsswitch and PAM configuration.
@@ -209,6 +215,24 @@ class BaseLinuxRole(BaseRole[HostType]):
         """
         Coredumpd utilities.
         """
+
+    @property
+    def profile(self) -> Profile:
+        """
+        Active authselect profile for the current topology.
+        """
+        if self._profile is None:
+            raise RuntimeError("Profile is not set. Was setup() called?")
+        return self._profile
+
+    def setup(self) -> None:
+        """
+        Resolve and store the active authselect profile from the topology mark.
+        """
+        mark = self.mh.data.topology_mark
+        if mark is not None:
+            self._profile = profile_from_topology_mark(mark)
+        super().setup()
 
 
 class BaseLinuxLDAPRole(BaseLinuxRole[LDAPHostType]):

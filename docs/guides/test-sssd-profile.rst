@@ -12,16 +12,16 @@ Marker and fixtures
     import pytest
 
     from authselect_test_framework.roles.client import Client
-    from authselect_test_framework.roles.generic import GenericServer
+    from authselect_test_framework.roles.generic import GenericProvider
     from authselect_test_framework.topology import Profile
 
 
     @pytest.mark.topology(Profile.SSSD)
-    def test_sssd__example(client: Client, provider: GenericServer):
+    def test_sssd__example(client: Client, provider: GenericProvider):
         ...
 
 * ``client`` — authselect client enrolled into IPA
-* ``provider`` — ``sssd.ipa[0]`` (implements :class:`~authselect_test_framework.roles.generic.GenericServer`)
+* ``provider`` — ``sssd.ipa[0]`` (implements :class:`~authselect_test_framework.roles.generic.GenericProvider`)
 
 Common pattern
 **************
@@ -148,7 +148,6 @@ with-pamaccess
         )
 
         client.authselect.select("sssd", ["with-pamaccess"])
-        client.sssd.domain["use_fully_qualified_names"] = "False"
         client.sssd.start()
 
         assert client.auth.ssh.password("user-1", "Secret123"), (

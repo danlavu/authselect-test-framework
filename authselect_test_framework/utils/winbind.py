@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import shlex
-
 from pytest_mh import MultihostHost, MultihostUtility
 from pytest_mh.conn import ProcessResult
 from pytest_mh.utils.services import SystemdServices
@@ -21,7 +19,7 @@ class WinbindUtils(MultihostUtility):
         :caption: Example usage
 
         @pytest.mark.topology(Profile.Winbind)
-        def test_example(client: Client, provider: GenericServer):
+        def test_example(client: Client, provider: GenericProvider):
             provider.user("user-1").add()
             client.authselect.select("winbind")
             client.winbind.start()
@@ -51,37 +49,16 @@ class WinbindUtils(MultihostUtility):
             raise_on_error=True,
         )
 
-    def wait_for_user(self, user: str, *, timeout: int = 60) -> None:
-        """
-        Wait until a domain user is resolvable via NSS.
-
-        :param user: User name to resolve.
-        :type user: str
-        :param timeout: Maximum wait time in seconds, defaults to 60
-        :type timeout: int, optional
-        :return: None
-        """
-        quoted_user = shlex.quote(user)
-        self.host.conn.run(
-            f"timeout {timeout}s bash -c 'until getent passwd {quoted_user}; do net cache flush; sleep 1; done'",
-            raise_on_error=True,
-        )
-
-    def start(self, *, users: list[str] | None = None) -> ProcessResult:
+    def start(self) -> ProcessResult:
         """
         Start winbind and refresh caches.
 
-        :param users: Domain users that must be resolvable before returning, defaults to None
-        :type users: list[str] | None, optional
         :return: SSH process result.
         :rtype: ProcessResult
         """
         result = self.svc.start("winbind.service")
         self.host.conn.exec(["net", "cache", "flush"])
         self._wait_for_ready()
-        if users:
-            for user in users:
-                self.wait_for_user(user)
         return result
 
     def stop(self) -> ProcessResult:

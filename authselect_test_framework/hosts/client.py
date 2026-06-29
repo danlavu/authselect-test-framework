@@ -54,6 +54,13 @@ class ClientHost(BaseHost, BaseLinuxHost):
         super().pytest_setup()
         self.sssd_service_user = self.svc.get_property("sssd", "User")
 
+    def setup(self) -> None:
+        """
+        Back up ``/home`` before each test so it can be restored in :meth:`teardown`.
+        """
+        self.fs.backup("/home")
+        super().setup()
+
     def teardown(self) -> None:
         if self.authselect_backup is not None:
             self.conn.exec(
@@ -67,6 +74,7 @@ class ClientHost(BaseHost, BaseLinuxHost):
             self.authselect_backup = None
 
         self.stop_identity_services()
+        self.fs.restore("/home")
         super().teardown()
 
     @property
