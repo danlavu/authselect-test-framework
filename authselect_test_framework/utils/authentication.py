@@ -61,7 +61,7 @@ class AuthenticationUtils(MultihostUtility[MultihostHost]):
             @pytest.mark.topology(Profile.SSSD)
             @pytest.mark.topology(Profile.Winbind)
             @pytest.mark.parametrize('method', ['su', 'ssh'])
-            def test_example(client: Client, server: GenericServer, method: str):
+            def test_example(client: Client, provider: GenericServer, method: str):
                 ldap.user('tuser').add(password='Secret123')
 
                 client.sssd.start()

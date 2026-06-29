@@ -290,7 +290,15 @@ class BaseLinuxHost(MultihostHost[AuthselectMultihostDomain]):
         rpm = self.conn.run("test -f /usr/bin/rpm", raise_on_error=False)
         dpkg = self.conn.run("test -f /usr/bin/dpkg-query", raise_on_error=False)
         if rpm.rc == 0:
-            ver = self.conn.run(f'rpm -q {package} --queryformat "%{{VERSION}}-%{{RELEASE}}"').stdout
+            result = self.conn.run(
+                f'rpm -q {package} --queryformat "%{{VERSION}}-%{{RELEASE}}"',
+                raise_on_error=False,
+            )
+            if result.rc != 0:
+                if raise_on_error:
+                    raise OSError(f"Package {package} not found!")
+                return vers
+            ver = result.stdout
         elif dpkg.rc != 0:
             ver = self.conn.run(f"dpkg-query -f '${{Version}}' -W {package}").stdout
         else:

@@ -23,7 +23,7 @@ class AuthselectUtils(MultihostUtility[MultihostHost]):
 
         @pytest.mark.topology(Profile.SSSD)
         @pytest.mark.topology(Profile.Winbind)
-        def test_example(client: Client, server: GenericServer):
+        def test_example(client: Client, provider: GenericServer):
             client.authselect.select('sssd', ['with-mkhomedir'])
 
     .. note::
@@ -53,6 +53,37 @@ class AuthselectUtils(MultihostUtility[MultihostHost]):
         :type features: list[str], optional
         """
         self.host.conn.exec(["authselect", "select", profile, *features, "--force", *self._backup_args()])
+        self.assert_selected(profile, features)
+
+    def assert_selected(self, profile: str, features: List[str] | None = None) -> None:
+        """
+        Verify that authselect profile and features were applied.
+
+        :param profile: Authselect profile or preset name passed to :meth:`select`.
+        :type profile: str
+        :param features: Authselect features expected to be enabled, defaults to None
+        :type features: list[str] | None, optional
+        """
+        if features is None:
+            features = []
+
+        current = self.current(raw=True).strip()
+
+        if profile.startswith("@"):
+            assert current, f"authselect should apply configuration after selecting preset {profile}!"
+            if features:
+                assert self.is_feature_enabled(
+                    features
+                ), f"authselect features {features!r} should be enabled after selecting {profile}!"
+            return
+
+        expected = " ".join([profile, *features]) if features else profile
+        assert current == expected, f"authselect current should be '{expected}' after select, got '{current}'!"
+
+        if features:
+            assert self.is_feature_enabled(
+                features
+            ), f"authselect features {features!r} should be enabled after selecting {profile}!"
 
     def list(self) -> ProcessResult:
         """

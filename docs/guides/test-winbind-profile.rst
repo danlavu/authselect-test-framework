@@ -17,11 +17,11 @@ Marker and fixtures
 
 
     @pytest.mark.topology(Profile.Winbind)
-    def test_winbind__example(client: Client, server: GenericServer):
+    def test_winbind__example(client: Client, provider: GenericServer):
         ...
 
 * ``client`` — client configured for winbind (SSSD disabled by :class:`~authselect_test_framework.controllers.WinbindController`)
-* ``server`` — ``sssd.samba[0]`` (Samba AD, implements :class:`~authselect_test_framework.roles.generic.GenericServer`)
+* ``provider`` — ``sssd.samba[0]`` (Samba AD, implements :class:`~authselect_test_framework.roles.generic.GenericServer`)
 
 Common pattern
 **************
@@ -34,7 +34,7 @@ Winbind tests mirror the SSSD profile flow with these substitutions:
 
 .. code-block:: python
 
-    server.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
+    provider.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
 
 with-mkhomedir
 ==============
@@ -45,7 +45,7 @@ with-mkhomedir
 
     client.fs.backup("/home/user-1")
 
-    server.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
+    provider.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
 
     client.fs.rm("/home/user-1")
     client.authselect.select("winbind", ["with-mkhomedir"])
@@ -64,14 +64,14 @@ with-mkhomedir
 with-faillock
 =============
 
-``test_winbind__with_faillock`` — PAM faillock with ``su``; no SSSD pam responder.
+``test_all_profiles__with_faillock`` — PAM faillock with ``su``; no SSSD pam responder.
 
 .. code-block:: python
 
     from authselect_test_framework.utils.pam import PAMFaillockUtils
     from pytest_mh import mh_utility
 
-    server.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
+    provider.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
 
     faillock = PAMFaillockUtils(client.host, client.fs)
     with mh_utility(faillock):
@@ -113,8 +113,8 @@ with-pamaccess
     from authselect_test_framework.utils.pam import PAMAccessUtils
     from pytest_mh import mh_utility
 
-    server.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
-    server.user("user-2").add(uid=10002, gid=10002, home="/home/user-2", shell="/bin/bash")
+    provider.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
+    provider.user("user-2").add(uid=10002, gid=10002, home="/home/user-2", shell="/bin/bash")
 
     access = PAMAccessUtils(client.host, client.fs)
     with mh_utility(access):
@@ -142,7 +142,7 @@ with-silent-lastlog
 
 .. code-block:: python
 
-    server.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
+    provider.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
     client.authselect.select("winbind", ["with-silent-lastlog"])
     client.winbind.start()
 
@@ -159,14 +159,14 @@ with-gssapi
 
 .. code-block:: python
 
-    server.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
-    server.sudorule("test").add(user="user-1", host="ALL", command="/bin/ls")
+    provider.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
+    provider.sudorule("test").add(user="user-1", host="ALL", command="/bin/ls")
     client.authselect.select("winbind", ["with-gssapi", "with-sudo"])
     client.winbind.start()
 
     with client.ssh("user-1", "Secret123") as ssh:
-        assert ssh.run(f"kinit user-1@{server.realm}", input="Secret123"), (
-            f"kinit failed for user-1@{server.realm} with with-gssapi enabled!"
+        assert ssh.run(f"kinit user-1@{provider.realm}", input="Secret123"), (
+            f"kinit failed for user-1@{provider.realm} with with-gssapi enabled!"
         )
         assert "(root) /bin/ls" in ssh.run("sudo -l").stdout, (
             "sudo rule was not listed with with-gssapi enabled!"
@@ -192,8 +192,8 @@ SSSD vs winbind differences
      - ``client.sssd.start()``
      - ``client.winbind.start()``
    * - Server fixture
-     - FreeIPA (``server`` → IPA)
-     - Samba AD (``server`` → Samba)
+     - FreeIPA (``provider`` → IPA)
+     - Samba AD (``provider`` → Samba)
    * - Sudo / pamaccess extras
      - SSSD responders and domain options
      - winbind only; no ``client.sssd`` configuration

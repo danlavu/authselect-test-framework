@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 
 from pytest_mh import MultihostHost, MultihostUtility
 from pytest_mh.utils.fs import LinuxFileSystem
@@ -22,10 +23,10 @@ class PAMAccessUtils(MultihostUtility):
 
         @pytest.mark.topology(Profile.SSSD)
         @pytest.mark.topology(Profile.Winbind)
-        def test_example(client: Client, server: GenericServer):
+        def test_example(client: Client, provider: GenericServer):
             # Add users
-            server.user("user-1").add()
-            server.user("user-2").add()
+            provider.user("user-1").add()
+            provider.user("user-2").add()
 
             with mh_utility(PAMAccessUtils(client.host, client.fs)) as access:
                 # Add rule to permit "user-1" and deny "user-2"
@@ -109,7 +110,7 @@ class PAMAccessUtils(MultihostUtility):
                     self.logger.info(f"Deleting node in Augeas tree {self.file}")
                     self.host.conn.run(f"augtool {self.args} --autosave rm {node}")
                 else:
-                    index = +index
+                    index += 1
 
     def config_set(self, value: list[dict[str, str]]) -> None:
         """
@@ -126,7 +127,7 @@ class PAMAccessUtils(MultihostUtility):
             self.cmd = self.cmd + f"set {self.path}/access[{count}] " + i["access"] + "\n"
             self.cmd = self.cmd + f"set {self.path}/access[{count}]/user " + i["user"] + "\n"
             self.cmd = self.cmd + f"set {self.path}/access[{count}]/origin " + i["origin"] + "\n"
-            count = +count
+            count += 1
 
         self.host.conn.run(f"augtool --echo {self.args}", input=f"{self.cmd} save\n")
 
@@ -140,9 +141,9 @@ class PAMFaillockUtils(MultihostUtility):
 
         @pytest.mark.topology(Profile.SSSD)
         @pytest.mark.topology(Profile.Winbind)
-        def test_example(client: Client, server: GenericServer):
+        def test_example(client: Client, provider: GenericServer):
             # Add user
-            server.user("user-1").add()
+            provider.user("user-1").add()
 
             with mh_utility(PAMFaillockUtils(client.host, client.fs)) as faillock:
                 # Setup faillock
@@ -226,3 +227,14 @@ class PAMFaillockUtils(MultihostUtility):
             self.cmd = self.cmd + f"set {self.path}/{k} {v}\n"
 
         self.host.conn.run(f"augtool --echo {self.args}", input=f"{self.cmd}save\n")
+
+    def reset_user(self, username: str) -> None:
+        """
+        Reset faillock records for a user.
+
+        :param username: User name.
+        :type username: str
+        :return: None
+        """
+        quoted_user = shlex.quote(username)
+        self.host.conn.run(f"faillock --user {quoted_user} --reset", raise_on_error=False)

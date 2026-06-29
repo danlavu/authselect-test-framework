@@ -17,18 +17,18 @@ Marker and fixtures
 
 
     @pytest.mark.topology(Profile.SSSD)
-    def test_sssd__example(client: Client, server: GenericServer):
+    def test_sssd__example(client: Client, provider: GenericServer):
         ...
 
 * ``client`` — authselect client enrolled into IPA
-* ``server`` — ``sssd.ipa[0]`` (implements :class:`~authselect_test_framework.roles.generic.GenericServer`)
+* ``provider`` — ``sssd.ipa[0]`` (implements :class:`~authselect_test_framework.roles.generic.GenericServer`)
 
 Common pattern
 **************
 
 Functional tests follow the same flow:
 
-1. Create users or rules on ``server``
+1. Create users or rules on ``provider``
 2. ``client.authselect.select("sssd", [features])``
 3. Configure and start ``client.sssd``
 4. Exercise the feature (authentication, sudo, getent, …)
@@ -45,7 +45,7 @@ with-mkhomedir
 
     client.fs.backup("/home/user-1")
 
-    server.user("user-1").add(home="/home/user-1")
+    provider.user("user-1").add(home="/home/user-1")
 
     client.fs.rm("/home/user-1")
     client.authselect.select("sssd", ["with-mkhomedir"])
@@ -64,14 +64,14 @@ with-mkhomedir
 with-faillock
 =============
 
-``test_sssd__with_faillock`` — PAM faillock lockout via ``su``, reset with ``faillock``.
+``test_all_profiles__with_faillock`` — PAM faillock lockout via ``su``, reset with ``faillock``.
 
 .. code-block:: python
 
     from authselect_test_framework.utils.pam import PAMFaillockUtils
     from pytest_mh import mh_utility
 
-    server.user("user-1").add()
+    provider.user("user-1").add()
 
     faillock = PAMFaillockUtils(client.host, client.fs)
     with mh_utility(faillock):
@@ -111,8 +111,8 @@ with-sudo
 
 .. code-block:: python
 
-    server.user("user-1").add()
-    server.sudorule("test").add(user="user-1", host="ALL", command="/bin/ls")
+    provider.user("user-1").add()
+    provider.sudorule("test").add(user="user-1", host="ALL", command="/bin/ls")
 
     client.authselect.select("sssd", ["with-sudo"])
     client.sssd.enable_responder("sudo")
@@ -135,8 +135,8 @@ with-pamaccess
     from authselect_test_framework.utils.pam import PAMAccessUtils
     from pytest_mh import mh_utility
 
-    server.user("user-1").add()
-    server.user("user-2").add()
+    provider.user("user-1").add()
+    provider.user("user-2").add()
 
     access = PAMAccessUtils(client.host, client.fs)
     with mh_utility(access):
@@ -165,7 +165,7 @@ with-silent-lastlog
 
 .. code-block:: python
 
-    server.user("user-1").add()
+    provider.user("user-1").add()
     client.authselect.select("sssd", ["with-silent-lastlog"])
     client.sssd.start()
 
@@ -182,8 +182,8 @@ with-gssapi
 
 .. code-block:: python
 
-    server.user("user-1").add()
-    server.sudorule("test").add(user="user-1", host="ALL", command="/bin/ls")
+    provider.user("user-1").add()
+    provider.sudorule("test").add(user="user-1", host="ALL", command="/bin/ls")
     client.authselect.select("sssd", ["with-gssapi", "with-sudo"])
     client.sssd.enable_responder("sudo")
     client.sssd.domain["pam_gssapi_services"] = "sudo, sudo-i"
@@ -191,8 +191,8 @@ with-gssapi
     client.sssd.start()
 
     with client.ssh("user-1", "Secret123") as ssh:
-        assert ssh.run(f"kinit user-1@{server.realm}", input="Secret123"), (
-            f"kinit failed for user-1@{server.realm} with with-gssapi enabled!"
+        assert ssh.run(f"kinit user-1@{provider.realm}", input="Secret123"), (
+            f"kinit failed for user-1@{provider.realm} with with-gssapi enabled!"
         )
         assert "(root) /bin/ls" in ssh.run("sudo -l").stdout, (
             "sudo rule was not listed with with-gssapi enabled!"
@@ -207,7 +207,7 @@ with-group-merging
 .. code-block:: python
 
     client.local.group("group").add(gid=123456)
-    server.group("group").add(gid=123456).add_member(server.user("user").add())
+    provider.group("group").add(gid=123456).add_member(provider.user("user").add())
     client.authselect.select("sssd", ["with-group-merging"])
     client.sssd.start()
 

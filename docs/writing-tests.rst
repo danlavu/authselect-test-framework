@@ -40,7 +40,7 @@ Available profiles
      - Local profile, presets, CLI tests
    * - :attr:`~authselect_test_framework.topology.Profile.SSSD`
      - client + ipa
-     - SSSD profile with FreeIPA server
+     - SSSD profile with FreeIPA provider
    * - :attr:`~authselect_test_framework.topology.Profile.Winbind`
      - client + samba
      - Winbind profile against a Samba AD domain
@@ -49,7 +49,7 @@ Server fixture tests
 ====================
 
 Authselect tests are grouped by profile (``test_sssd.py``, ``test_winbind.py``).
-The ``server`` fixture points to ``sssd.ipa[0]`` on the SSSD profile and
+The ``provider`` fixture points to ``sssd.ipa[0]`` on the SSSD profile and
 ``sssd.samba[0]`` on the Winbind profile.
 
 SSSD — with-sudo
@@ -67,9 +67,9 @@ From ``test_sssd__with_sudo``:
 
 
     @pytest.mark.topology(Profile.SSSD)
-    def test_sssd__with_sudo(client: Client, server: GenericServer):
-        server.user("user-1").add()
-        server.sudorule("test").add(user="user-1", host="ALL", command="/bin/ls")
+    def test_sssd__with_sudo(client: Client, provider: GenericServer):
+        provider.user("user-1").add()
+        provider.sudorule("test").add(user="user-1", host="ALL", command="/bin/ls")
 
         client.authselect.select("sssd", ["with-sudo"])
         client.sssd.enable_responder("sudo")
@@ -105,9 +105,9 @@ From ``test_winbind__with_pamaccess``:
 
 
     @pytest.mark.topology(Profile.Winbind)
-    def test_winbind__with_pamaccess(client: Client, server: GenericServer):
-        server.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
-        server.user("user-2").add(uid=10002, gid=10002, home="/home/user-2", shell="/bin/bash")
+    def test_winbind__with_pamaccess(client: Client, provider: GenericServer):
+        provider.user("user-1").add(uid=10001, gid=10001, home="/home/user-1", shell="/bin/bash")
+        provider.user("user-2").add(uid=10002, gid=10002, home="/home/user-2", shell="/bin/bash")
 
         access = PAMAccessUtils(client.host, client.fs)
         with mh_utility(access):

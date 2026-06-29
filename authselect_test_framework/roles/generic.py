@@ -47,7 +47,7 @@ class GenericServer(ABC, MultihostRole[BaseHost]):
 
     .. note::
 
-        This class provides a generic interface for the ``server`` fixture. It is
+        This class provides a generic interface for the ``provider`` fixture. It is
         used for type hinting in profile tests that run on multiple topologies.
     """
 

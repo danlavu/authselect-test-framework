@@ -9,7 +9,7 @@ from pytest_mh import MultihostItemData, Topology
 
 from .misc import to_list_of_strings
 from .roles.base import BaseRole
-from .topology import Profile
+from .topology import Profile, ProfileGroup
 
 
 def pytest_configure(config: pytest.Config):
@@ -67,12 +67,14 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         elif not mark.args and mark.kwargs:
             requirements = dict(mark.kwargs)
             topology = []
-        elif len(mark.args) == 1 and isinstance(mark.args[0], (Topology, Profile)) and mark.kwargs:
+        elif len(mark.args) == 1 and isinstance(mark.args[0], (Topology, Profile, ProfileGroup)) and mark.kwargs:
             requirements = dict(mark.kwargs)
             if isinstance(mark.args[0], Topology):
                 topology = [mark.args[0]]
             elif isinstance(mark.args[0], Profile):
                 topology = [mark.args[0].value.topology]
+            elif isinstance(mark.args[0], ProfileGroup):
+                topology = [x.value.topology for x in mark.args[0].value]
         else:
             raise ValueError(f"{item.nodeid}::{item.originalname}: invalid arguments for @pytest.mark.builtwith")
 
